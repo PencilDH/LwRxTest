@@ -56,8 +56,9 @@ int Direction = 0;
 int MotorTimeOut = 0;
 // Tunable constants 
   int PWM_Duty = 10;    // Ammount of current directed to the motor = 0 MAX
-  int TimeMoutThres  = 800;
-  int StopThreshold = 139;
+  int TimeMoutThres  = 1420;
+  int UP_CorrectionTimeOut  = 350;
+  int StopThreshold = 135;
 
 //Button Pullup
 int Pullup = A1;
@@ -73,6 +74,8 @@ int count = 0;
 // Blocked Motor
 // Tunable constants 
   int BlockedDebounce = 0;
+  int NoFreqDebounce = 0;
+  int NoFreqDebounceThres = 3;
   int BlockedDebounceTheshold = 2;
 
 
@@ -232,7 +235,7 @@ void loop() {
       if(Direction < 0){
         // Stop Motor
         Serial.print("Stop ");
-        MotorTimeOut = TimeMoutThres;
+        MotorTimeOut = TimeMoutThres + UP_CorrectionTimeOut;
       }
       //digitalWrite(AH, LOW);
       //digitalWrite(AL, LOW);
@@ -266,6 +269,20 @@ void loop() {
         Direction = -1;
         }
       }
+      if (msg[0] == 0x0C) {
+        //Left
+        if (Direction <= 0) {
+          // Stop LWRF signal recived
+        Serial.println("STOP_APP");
+        digitalWrite(AH, LOW);
+        digitalWrite(AL, LOW);
+        digitalWrite(BH, LOW);
+        analogWrite(BL, LOW);
+        MotoRun = false;
+        MotorTimeOut = TimeMoutThres;
+        Direction = 0;
+        }
+      }
     }
     else {
       ledState = HIGH;
@@ -275,7 +292,7 @@ void loop() {
       if(Direction > 0){
         // Stop Motor
         Serial.print("Stop ");
-        MotorTimeOut = TimeMoutThres;
+        MotorTimeOut = TimeMoutThres + UP_CorrectionTimeOut;
       }
       //digitalWrite(AH, LOW);
       //digitalWrite(AL, LOW);
@@ -350,42 +367,77 @@ void loop() {
 
   if (MotoRun) {
     MotorTimeOut++;
-    Serial.print("Timeout ");
-    Serial.println(MotorTimeOut);
-
+    Serial.print("Timeout :");
+    Serial.print(MotorTimeOut);
   
     if (FreqMeasure.available()) {
       // average several reading together
+      NoFreqDebounce = 0;
       sum = sum + FreqMeasure.read();
       count = count + 1;
       if (count > 3) {
         float frequency = FreqMeasure.countToFrequency(sum / count);
-        Serial.println(frequency);
+        Serial.print("\t Speed: ");
+        Serial.print(frequency);
         if (frequency < StopThreshold) {
           Serial.println("Blocked Motor ");
           BlockedDebounce++;
           if(BlockedDebounce>BlockedDebounceTheshold){
             Serial.println("Blocked Motor Stop!");
-            MotorTimeOut = TimeMoutThres;
+            MotorTimeOut = TimeMoutThres+ UP_CorrectionTimeOut;
             BlockedDebounce = 0;
             //MotorTimeOut=400;
           }
+        }
+        else{
+          BlockedDebounce = 0;
         }
         sum = 0;
         count = 0;
       }
     }
-
-
-    if (MotorTimeOut > TimeMoutThres) {
-      digitalWrite(AH, LOW);
-      digitalWrite(AL, LOW);
-      digitalWrite(BH, LOW);
-      digitalWrite(BL, LOW);
-      MotorTimeOut = 0;
-      MotoRun = false;
-      Direction = 0;
+    
+  if(MotorTimeOut%10 == 0){
+    // Stop of there is not frequency
+    NoFreqDebounce++;
+    if(NoFreqDebounce>NoFreqDebounceThres){
+      Serial.println("No frequency Blocked Motor Stop!");
+      MotorTimeOut = TimeMoutThres+UP_CorrectionTimeOut;
       BlockedDebounce = 0;
+      NoFreqDebounce =0;
+    }
+  }
+
+  NoFreqDebounceThres = 3;
+    
+
+    Serial.println("");
+    
+    if(Direction==-1){
+      if (MotorTimeOut > TimeMoutThres) {
+        Serial.println("Time out DOWN stop");
+        digitalWrite(AH, LOW);
+        digitalWrite(AL, LOW);
+        digitalWrite(BH, LOW);
+        digitalWrite(BL, LOW);
+        MotorTimeOut = 0;
+        MotoRun = false;
+        Direction = 0;
+        BlockedDebounce = 0;
+      }
+    }
+    else if(Direction==1){
+      if (MotorTimeOut > TimeMoutThres + UP_CorrectionTimeOut) {
+        Serial.println("Time out UP stop");
+        digitalWrite(AH, LOW);
+        digitalWrite(AL, LOW);
+        digitalWrite(BH, LOW);
+        digitalWrite(BL, LOW);
+        MotorTimeOut = 0;
+        MotoRun = false;
+        Direction = 0;
+        BlockedDebounce = 0;
+      }
     }
 
   }
