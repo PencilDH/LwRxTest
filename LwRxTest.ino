@@ -56,9 +56,9 @@ int Direction = 0;
 int MotorTimeOut = 0;
 // Tunable constants 
   int PWM_Duty = 10;    // Ammount of current directed to the motor = 0 MAX
-  int TimeMoutThres  = 1420;
+  int TimeMoutThres  = 1470;
   int UP_CorrectionTimeOut  = 350;
-  int StopThreshold = 135;
+  int StopThreshold = 133;
 
 //Button Pullup
 int Pullup = A1;
@@ -76,7 +76,7 @@ int count = 0;
   int BlockedDebounce = 0;
   int NoFreqDebounce = 0;
   int NoFreqDebounceThres = 3;
-  int BlockedDebounceTheshold = 2;
+  int BlockedDebounceTheshold = 3;
 
 
 void setup() {
@@ -270,8 +270,7 @@ void loop() {
         }
       }
       if (msg[0] == 0x0C) {
-        //Left
-        if (Direction <= 0) {
+        // Andy direction Stop
           // Stop LWRF signal recived
         Serial.println("STOP_APP");
         digitalWrite(AH, LOW);
@@ -281,7 +280,6 @@ void loop() {
         MotoRun = false;
         MotorTimeOut = TimeMoutThres;
         Direction = 0;
-        }
       }
     }
     else {
