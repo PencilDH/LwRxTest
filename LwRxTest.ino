@@ -55,9 +55,9 @@ bool MotoRun = false;
 int Direction = 0;
 int MotorTimeOut = 0;
 // Tunable constants 
-  int PWM_Duty = 90;    // Ammount of current directed to the motor = 0 MAX
+  int PWM_Duty = 10;    // Ammount of current directed to the motor = 0 MAX
   int TimeMoutThres  = 800;
-  int StopThreshold = 100;
+  int StopThreshold = 139;
 
 //Button Pullup
 int Pullup = A1;
@@ -238,7 +238,7 @@ void loop() {
       //digitalWrite(AL, LOW);
       //digitalWrite(BH, LOW);
       //digitalWrite(BL, LOW);
-      if (msg[0] == 11 || msg[0] == 9) {
+      if (msg[0] == 11 || msg[0] == 9 || msg[0] == 1) {
         //Right
         if (Direction >= 0) {
           // +1 doing up
@@ -281,7 +281,7 @@ void loop() {
       //digitalWrite(AL, LOW);
       //digitalWrite(BH, LOW);
       //digitalWrite(BL, LOW);
-      if (msg[0] == 10 || msg[0] == 8) {
+      if (msg[0] == 10 || msg[0] == 8 || msg[0] == 4) {
         //Left
         if (Direction <= 0) {
           // -1 doing down
@@ -289,7 +289,7 @@ void loop() {
         digitalWrite(AH, HIGH);
         digitalWrite(AL, HIGH);
         digitalWrite(BH, LOW);
-        analogWrite(BL, PWM_Duty);
+        analogWrite(BL, LOW);
         MotoRun = true;
         MotorTimeOut = 0;
         Direction = -1;
