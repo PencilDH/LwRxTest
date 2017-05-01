@@ -1,6 +1,6 @@
 #include <FreqMeasure.h>
 #include <EEPROM.h>
-//last edit 17/02/2017
+//last edit 30/04/2017
 
 #include <LwRx.h>
 #if EEPROM_EN == 1
@@ -55,10 +55,12 @@ bool MotoRun = false;
 int Direction = 0;
 int MotorTimeOut = 0;
 // Tunable constants 
-  int PWM_Duty = 10;    // Ammount of current directed to the motor = 0 MAX
-  int TimeMoutThres  = 1470;
-  int UP_CorrectionTimeOut  = 350;
-  int StopThreshold = 133;
+int PWM_Duty = 1;    // Ammount of current directed to the motor = 0 MAX
+int TimeMoutThres  = 1230;
+int UP_CorrectionTimeOut  = 350;
+int StopThreshold = 155;
+
+bool toggle_slow = false;
 
 //Button Pullup
 int Pullup = A1;
@@ -76,7 +78,7 @@ int count = 0;
   int BlockedDebounce = 0;
   int NoFreqDebounce = 0;
   int NoFreqDebounceThres = 3;
-  int BlockedDebounceTheshold = 3;
+  int BlockedDebounceTheshold = 5;
 
 
 void setup() {
@@ -219,16 +221,16 @@ void loop() {
   }
 
   if (newsignal) {
-    Serial.print("Debug 0 \t");
+    Serial.print("Debug [0]: \t");
     Serial.print(msg[0],HEX);
-    Serial.print("\t Debug 3 \t");
+    Serial.print("\t Debug [3] \t");
     Serial.println(msg[3],HEX);
     newsignal = false;
     
 
     // From Paired device recive ON
     // Motor activation
-    if (msg[3]) {
+    if (msg[3] == 1) {
       ledState = HIGH;
       digitalWrite(ledPin, ledState);
       Serial.print("ON ");
@@ -245,9 +247,9 @@ void loop() {
         //Right
         if (Direction >= 0) {
           // +1 doing up
-          Serial.println("Right");
+          Serial.println("Mode 1");
           digitalWrite(AH, LOW);
-          analogWrite(AL, PWM_Duty);
+          analogWrite(AL, LOW);
           digitalWrite(BH, HIGH);
           digitalWrite(BL, HIGH);
           MotoRun = true;
@@ -255,63 +257,92 @@ void loop() {
           Direction = 1;
         }
       }
-      if (msg[0] == 8) {
-        //Left
-        if (Direction <= 0) {
-          // -1 doing down
-        Serial.println("Left");
-        digitalWrite(AH, HIGH);
-        digitalWrite(AL, HIGH);
-        digitalWrite(BH, LOW);
-        analogWrite(BL, PWM_Duty);
-        MotoRun = true;
-        MotorTimeOut = 0;
-        Direction = -1;
+        if (msg[0] == 8) {
+          //Left
+          if (Direction <= 0) {
+            // -1 doing down
+          Serial.println("Mode 2");
+          digitalWrite(AH, HIGH);
+          digitalWrite(AL, HIGH);
+          digitalWrite(BH, LOW);
+          analogWrite(BL, LOW);
+          MotoRun = true;
+          MotorTimeOut = 0;
+          Direction = -1;
+          }
+        }
+        if (msg[0] == 0x0C) {
+          // Andy direction Stop
+            // Stop LWRF signal recived
+          Serial.println("STOP_APP");
+          digitalWrite(AH, LOW);
+          digitalWrite(AL, LOW);
+          digitalWrite(BH, LOW);
+          analogWrite(BL, LOW);
+          MotoRun = false;
+          MotorTimeOut = TimeMoutThres;
+          Direction = 0;
         }
       }
-      if (msg[0] == 0x0C) {
-        // Andy direction Stop
-          // Stop LWRF signal recived
-        Serial.println("STOP_APP");
-        digitalWrite(AH, LOW);
-        digitalWrite(AL, LOW);
-        digitalWrite(BH, LOW);
-        analogWrite(BL, LOW);
-        MotoRun = false;
-        MotorTimeOut = TimeMoutThres;
-        Direction = 0;
-      }
-    }
-    else {
-      ledState = HIGH;
-      digitalWrite(ledPin, ledState);
-      Serial.print("OFF ");
-      
-      if(Direction > 0){
-        // Stop Motor
-        Serial.print("Stop ");
-        MotorTimeOut = TimeMoutThres + UP_CorrectionTimeOut;
-      }
-      //digitalWrite(AH, LOW);
-      //digitalWrite(AL, LOW);
-      //digitalWrite(BH, LOW);
-      //digitalWrite(BL, LOW);
-      if (msg[0] == 10 || msg[0] == 8 || msg[0] == 4) {
-        //Left
-        if (Direction <= 0) {
-          // -1 doing down
-        Serial.println("Left");
-        digitalWrite(AH, HIGH);
-        digitalWrite(AL, HIGH);
-        digitalWrite(BH, LOW);
-        analogWrite(BL, LOW);
-        MotoRun = true;
-        MotorTimeOut = 0;
-        Direction = -1;
+      else if (msg[3] ==0) {
+        ledState = HIGH;
+        digitalWrite(ledPin, ledState);
+        Serial.print("OFF ");
+        
+        if(Direction > 0){
+          // Stop Motor
+          Serial.print("Stop ");
+          MotorTimeOut = TimeMoutThres + UP_CorrectionTimeOut;
+        }
+        //digitalWrite(AH, LOW);
+        //digitalWrite(AL, LOW);
+        //digitalWrite(BH, LOW);
+        //digitalWrite(BL, LOW);
+        if (msg[0] == 10 || msg[0] == 8 || msg[0] == 4) {
+          //Left
+          if (Direction <= 0) {
+            // -1 doing down
+          Serial.println("Mode 3");
+          digitalWrite(AH, HIGH);
+          digitalWrite(AL, HIGH);
+          digitalWrite(BH, LOW);
+          analogWrite(BL, LOW);
+          MotoRun = true;
+          MotorTimeOut = 0;
+          Direction = -1;
+          }
         }
       }
-    }
+      else if (msg[3]==7){
+        Serial.println("Curtains");
+        if(msg[0] == 12){
+          Serial.println("Stop");
+          MotorTimeOut = TimeMoutThres+1;
+        }
+        else if(msg[0] == 1){
+          Serial.println("Open");
+          digitalWrite(AH, LOW);
+          analogWrite(AL, PWM_Duty);
+          digitalWrite(BH, HIGH);
+          digitalWrite(BL, HIGH);
+          MotoRun = true;
+          MotorTimeOut = 0;
+          Direction = 1; 
+        }
+        else if(msg[0] == 0){
+          Serial.println("Close");
+          digitalWrite(AH, HIGH);
+          digitalWrite(AL, HIGH);
+          digitalWrite(BH, LOW);
+          analogWrite(BL, PWM_Duty);
+          MotoRun = true;
+          MotorTimeOut = 0;
+          Direction = -1;
+          
+        }
+      }
 
+    
   }
 
   if (!digitalRead(Button)) {
@@ -367,6 +398,15 @@ void loop() {
     MotorTimeOut++;
     Serial.print("Timeout :");
     Serial.print(MotorTimeOut);
+
+    int StopThresholdDirection = 0;
+    
+    if(Direction==1){
+      StopThresholdDirection = StopThreshold - 10;
+    }
+    else{
+      StopThresholdDirection = StopThreshold;
+    }
   
     if (FreqMeasure.available()) {
       // average several reading together
@@ -377,14 +417,32 @@ void loop() {
         float frequency = FreqMeasure.countToFrequency(sum / count);
         Serial.print("\t Speed: ");
         Serial.print(frequency);
-        if (frequency < StopThreshold) {
-          Serial.println("Blocked Motor ");
-          BlockedDebounce++;
-          if(BlockedDebounce>BlockedDebounceTheshold){
-            Serial.println("Blocked Motor Stop!");
-            MotorTimeOut = TimeMoutThres+ UP_CorrectionTimeOut;
-            BlockedDebounce = 0;
-            //MotorTimeOut=400;
+        if (frequency < StopThresholdDirection) {
+          
+          if(frequency > 95 || frequency < 44 ){
+          Serial.print("\t Thrs: ");
+          Serial.print(StopThresholdDirection);
+          Serial.println("\t Blocked Motor ");
+          
+            BlockedDebounce++;
+            if(BlockedDebounce>BlockedDebounceTheshold){
+              Serial.println("\t Blocked Motor Stop!");
+              MotorTimeOut = TimeMoutThres+ UP_CorrectionTimeOut;
+              BlockedDebounce = 0;
+              //MotorTimeOut=400;
+            }
+          }
+          else if (frequency > 45){
+            Serial.print("\t Time out Correction ");
+            if(toggle_slow){
+              MotorTimeOut--;
+              toggle_slow = false;
+            }
+            else{
+              toggle_slow = true;
+            }
+            
+            
           }
         }
         else{
